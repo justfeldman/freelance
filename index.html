@@ -1,0 +1,21 @@
+(function(){
+  const KEY="finchild_chores";
+  const seed = [
+    {task:"Pick niche + one-line offer", reward:10},
+    {task:"Create 2 mini case studies (before→after)", reward:15},
+    {task:"Set $120/hr floor + 3 fixed packages", reward:10},
+    {task:"Build simple landing (Notion/Carrd)", reward:15},
+    {task:"Source 50 leads (names + emails + sites)", reward:25},
+    {task:"Send 25 tailored outreaches (day 1)", reward:25},
+    {task:"Post 1 case study to LinkedIn", reward:15},
+    {task:"Close first $500 project", reward:50}
+  ];
+  localStorage.setItem(KEY, JSON.stringify(seed.map((c,i)=>({
+    id: Date.now()+i,
+    task: c.task,
+    reward: c.reward,
+    done: false
+  }))));
+})();
+
+
