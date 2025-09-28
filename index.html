@@ -1,21 +1,45 @@
-(function(){
-  const KEY="finchild_chores";
-  const seed = [
-    {task:"Pick niche + one-line offer", reward:10},
-    {task:"Create 2 mini case studies (before→after)", reward:15},
-    {task:"Set $120/hr floor + 3 fixed packages", reward:10},
-    {task:"Build simple landing (Notion/Carrd)", reward:15},
-    {task:"Source 50 leads (names + emails + sites)", reward:25},
-    {task:"Send 25 tailored outreaches (day 1)", reward:25},
-    {task:"Post 1 case study to LinkedIn", reward:15},
-    {task:"Close first $500 project", reward:50}
-  ];
-  localStorage.setItem(KEY, JSON.stringify(seed.map((c,i)=>({
-    id: Date.now()+i,
-    task: c.task,
-    reward: c.reward,
-    done: false
-  }))));
-})();
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Freelance Checklist</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    h1 { color: #cc0000; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 8px 0; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    input[type="checkbox"] { margin-right: 10px; }
+    .done { text-decoration: line-through; color: gray; }
+  </style>
+</head>
+<body>
+  <h1>Freelancer Startup Checklist</h1>
+  <ul id="checklist"></ul>
 
+  <script>
+    const seed = [
+      {task:"Pick niche + one-line offer", reward:10},
+      {task:"Create 2 mini case studies (before→after)", reward:15},
+      {task:"Set $120/hr floor + 3 fixed packages", reward:10},
+      {task:"Build simple landing (Notion/Carrd)", reward:15},
+      {task:"Source 50 leads (names + emails + sites)", reward:25},
+      {task:"Send 25 tailored outreaches (day 1)", reward:25},
+      {task:"Post 1 case study to LinkedIn", reward:15},
+      {task:"Close first $500 project", reward:50}
+    ];
 
+    const list = document.getElementById("checklist");
+
+    seed.forEach(item => {
+      const li = document.createElement("li");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.onchange = () => {
+        li.classList.toggle("done", checkbox.checked);
+      };
+      li.appendChild(checkbox);
+      li.appendChild(document.createTextNode(`${item.task} ($${item.reward})`));
+      list.appendChild(li);
+    });
+  </script>
+</body>
+</html>
