@@ -1,45 +1,205 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <title>Freelance Checklist</title>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
-    h1 { color: #cc0000; }
-    ul { list-style: none; padding: 0; }
-    li { margin: 8px 0; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-    input[type="checkbox"] { margin-right: 10px; }
-    .done { text-decoration: line-through; color: gray; }
-  </style>
+<meta charset="utf-8" />
+<title>Weekend Freelancer Checklist</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<style>
+  :root{ --brand:#e60000; --bg:#fff; --fg:#0f172a; --muted:#667085; --card:#f8fafb; --line:#e5e7eb; --ok:#16a34a; --warn:#ef4444; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0f18; --fg:#e5e7eb; --muted:#98a2b3; --card:#111827; --line:#1f2937; }
+  }
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
+    padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+            max(90px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  }
+  h1{margin:0 0 10px; font-size:clamp(20px,4.5vw,28px)}
+  .sub{color:var(--muted); margin:0 0 12px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin:12px 0}
+  .section{font-weight:700; margin:8px 0 6px}
+  .task{display:flex; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:14px; margin:10px 0}
+  .task input{width:26px; height:26px}
+  .task .main{flex:1}
+  .task .title{font-size:16px; font-weight:600}
+  .task .meta{font-size:13px; color:var(--muted)}
+  .reward{background:#ffe8e8; color:#7a0a0a; border-radius:10px; padding:6px 10px; font-weight:700}
+  .done .title{ text-decoration: line-through; color:var(--muted)}
+  .due{font-weight:600}
+  .overdue{color:var(--warn)}
+  .timer{font-variant-numeric: tabular-nums}
+  .btn{display:inline-block; font-size:16px; padding:14px 18px; border-radius:12px; border:none; min-height:44px; cursor:pointer}
+  .btn-primary{background:var(--brand); color:#fff}
+  .btn-ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+  .footer{position:fixed; left:0; right:0; bottom:0; background:var(--card); border-top:1px solid var(--line);
+          padding:12px max(16px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+          display:flex; gap:10px; align-items:center; justify-content:space-between}
+  .pill{background:#fff; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:14px}
+</style>
 </head>
 <body>
-  <h1>Freelancer Startup Checklist</h1>
-  <ul id="checklist"></ul>
+  <h1>🏁 Weekend Freelancer Checklist</h1>
+  <p class="sub">Two-weekend sprint to land your first/next client. Tap to complete — rewards auto-credit your West-Kids wallet.</p>
 
-  <script>
-    const seed = [
-      {task:"Pick niche + one-line offer", reward:10},
-      {task:"Create 2 mini case studies (before→after)", reward:15},
-      {task:"Set $120/hr floor + 3 fixed packages", reward:10},
-      {task:"Build simple landing (Notion/Carrd)", reward:15},
-      {task:"Source 50 leads (names + emails + sites)", reward:25},
-      {task:"Send 25 tailored outreaches (day 1)", reward:25},
-      {task:"Post 1 case study to LinkedIn", reward:15},
-      {task:"Close first $500 project", reward:50}
-    ];
+  <div id="wrap"></div>
 
-    const list = document.getElementById("checklist");
+  <div class="card">
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <button class="btn btn-ghost" id="reset">Reset progress</button>
+      <button class="btn btn-primary" id="sync">Sync tasks to West-Kids (Parent → Chores)</button>
+    </div>
+    <p class="sub" id="msg"></p>
+  </div>
 
-    seed.forEach(item => {
-      const li = document.createElement("li");
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.onchange = () => {
-        li.classList.toggle("done", checkbox.checked);
-      };
-      li.appendChild(checkbox);
-      li.appendChild(document.createTextNode(`${item.task} ($${item.reward})`));
-      list.appendChild(li);
+  <div class="footer">
+    <span class="pill">💳 Wallet: $<span id="bal">0.00</span></span>
+    <a href="../wallet.html" style="text-decoration:none"><button class="btn btn-primary">Open Wallet</button></a>
+  </div>
+
+<script>
+/* ====== Storage keys shared with your West-Kids app ====== */
+const KEY_BAL="finchild_wallet";
+const KEY_CHORES="finchild_chores";
+const KEY_CHECK="freelance_tasks_v1";   // checklist state
+
+/* ====== Helpers ====== */
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const fmt = v => Number(v).toFixed(2);
+const now = new Date();
+
+/* Compute the next Saturday/Sunday, and the following weekend too */
+function nextDow(dow){ // 0=Sun..6=Sat
+  const d = new Date(); const delta = (dow - d.getDay() + 7) % 7 || 7; d.setDate(d.getDate() + delta); return d;
+}
+function atTime(d, h){ const x = new Date(d); x.setHours(h,0,0,0); return x; }
+const wk1Sat = nextDow(6), wk1Sun = nextDow(0);
+const wk2Sat = new Date(wk1Sat); wk2Sat.setDate(wk2Sat.getDate()+7);
+const wk2Sun = new Date(wk1Sun); wk2Sun.setDate(wk2Sun.getDate()+7);
+
+/* ====== Seed tasks with deadlines & rewards (AUD) ====== */
+const SEED = [
+  // Weekend 1
+  {title:"Pick niche + one-line offer", reward:10, due: atTime(wk1Sat, 11), section:"Weekend 1 — Saturday AM"},
+  {title:"Build simple landing (Notion/Carrd)", reward:15, due: atTime(wk1Sat, 17), section:"Weekend 1 — Saturday PM"},
+  {title:"Create 2 mini case studies (before→after)", reward:15, due: atTime(wk1Sun, 11), section:"Weekend 1 — Sunday AM"},
+  {title:"Set $120/hr floor + 3 fixed packages", reward:10, due: atTime(wk1Sun, 17), section:"Weekend 1 — Sunday PM"},
+
+  // Weekend 2
+  {title:"Source 50 leads (names, emails, sites)", reward:25, due: atTime(wk2Sat, 11), section:"Weekend 2 — Saturday AM"},
+  {title:"Send 25 tailored outreaches", reward:25, due: atTime(wk2Sat, 17), section:"Weekend 2 — Saturday PM"},
+  {title:"Post 1 case study/demo to LinkedIn", reward:15, due: atTime(wk2Sun, 11), section:"Weekend 2 — Sunday AM"},
+  {title:"Close first $500 project (stretch)", reward:50, due: atTime(wk2Sun, 20), section:"Weekend 2 — Sunday PM"},
+];
+
+/* ====== Load/Save state ====== */
+function loadState(){
+  try{ return JSON.parse(localStorage.getItem(KEY_CHECK)) || {}; } catch { return {}; }
+}
+function saveState(s){ localStorage.setItem(KEY_CHECK, JSON.stringify(s)); }
+
+/* Wallet */
+function getBal(){ return parseFloat(localStorage.getItem(KEY_BAL)||"0"); }
+function setBal(v){ localStorage.setItem(KEY_BAL, String(Number(v).toFixed(2))); }
+
+/* ====== Render checklist ====== */
+function render(){
+  $("#bal").textContent = fmt(getBal());
+  const state = loadState();
+  const bySection = {};
+  SEED.forEach((t,i)=>{ (bySection[t.section] ||= []).push({...t, idx:i}); });
+
+  const wrap = $("#wrap"); wrap.innerHTML = "";
+
+  Object.keys(bySection).forEach(sec=>{
+    const box = document.createElement("div"); box.className = "card";
+    box.innerHTML = `<div class="section">${sec}</div>`;
+    wrap.appendChild(box);
+
+    bySection[sec].forEach(item=>{
+      const id = "t_"+item.idx;
+      const checked = !!state[id];
+      const overdue = !checked && (item.due.getTime() < Date.now());
+      const li = document.createElement("label");
+      li.className = "task" + (checked?" done":"");
+      li.innerHTML = `
+        <input type="checkbox" ${checked?"checked":""} aria-label="complete ${item.title}">
+        <div class="main">
+          <div class="title">${item.title}</div>
+          <div class="meta">
+            <span class="due ${overdue?'overdue':''}">Due: ${item.due.toLocaleString()}</span>
+            &nbsp;•&nbsp;<span class="timer" data-ts="${item.due.getTime()}"></span>
+          </div>
+        </div>
+        <div class="reward">+$${fmt(item.reward)}</div>
+      `;
+      const cb = li.querySelector("input");
+      cb.onchange = () => toggle(item, id, li, cb.checked);
+      box.appendChild(li);
     });
-  </script>
+  });
+
+  tickTimers();
+}
+
+/* Toggle completion + credit wallet */
+function toggle(item, id, el, checked){
+  const state = loadState();
+  if(checked && !state[id]){
+    state[id] = true;
+    setBal(getBal() + item.reward);
+    toast(`Credited $${fmt(item.reward)} — nice!`);
+  } else if(!checked && state[id]){
+    delete state[id];
+    setBal(Math.max(0, getBal() - item.reward));
+    toast(`Reversed $${fmt(item.reward)}.`);
+  }
+  saveState(state);
+  el.classList.toggle("done", checked);
+  $("#bal").textContent = fmt(getBal());
+}
+
+/* Countdown timers */
+function tickTimers(){
+  const els = $$(".timer");
+  function update(){
+    const n = Date.now();
+    els.forEach(e=>{
+      const ts = Number(e.dataset.ts);
+      const diff = ts - n;
+      const past = diff < 0;
+      const abs = Math.abs(diff);
+      const d = Math.floor(abs/86400000);
+      const h = Math.floor((abs%86400000)/3600000);
+      const m = Math.floor((abs%3600000)/60000);
+      e.textContent = (past?"⏰ overdue by ":"⏳ in ") + (d?d+"d ":"") + (h?h+"h ":"") + m+"m";
+    });
+  }
+  update(); setInterval(update, 60000);
+}
+
+/* Buttons */
+$("#reset").onclick = ()=>{
+  if(confirm("Reset checklist progress and wallet credits from these tasks?")){
+    localStorage.removeItem(KEY_CHECK);
+    // NOTE: wallet stays as-is (safer). Remove next line if you want to zero wallet:
+    // setBal(0);
+    render();
+  }
+};
+$("#sync").onclick = ()=>{
+  const chores = SEED.map(t=>({ id: crypto.randomUUID(), task: t.title, reward: t.reward, completed:false }));
+  localStorage.setItem(KEY_CHORES, JSON.stringify(chores));
+  toast("Synced to West-Kids (Parent → Chores).");
+};
+
+function toast(t){ $("#msg").textContent=t; setTimeout(()=>$("#msg").textContent="",1800); }
+
+/* Boot */
+render();
+</script>
 </body>
 </html>
